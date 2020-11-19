@@ -1,0 +1,7 @@
+devel/*
+build/*
+logs/*
+install/*
+ponchon*/
+.catkin*
+.vs*
