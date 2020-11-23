@@ -89,12 +89,14 @@ void PathsFollower::updateControlPose()
   }
 }
 
-float PathsFollower::distance(float x1, float y1, float x2, float y2){
-  return std::sqrt(std::pow(x2 - x1, 2) +  
-                std::pow(y2 - y1, 2) * 1.0); 
+float PathsFollower::distance(float x1, float y1, float x2, float y2)
+{
+  return std::sqrt(std::pow(x2 - x1, 2) +
+                   std::pow(y2 - y1, 2) * 1.0);
 }
 
-void PathsFollower::print_path(){
+void PathsFollower::print_path()
+{
   for (int i = 0; i < path_to_follow_.size(); i++)
   {
     ROS_INFO_STREAM("POS: " << i);
@@ -104,24 +106,36 @@ void PathsFollower::print_path(){
   }
 }
 
-void PathsFollower::get_closest_point(){
+void PathsFollower::get_closest_point()
+{
   d_ = std::numeric_limits<float>::max();
   updateControlPose();
   float x1 = std::get<0>(pose_);
   float y1 = std::get<1>(pose_);
 
-  for (int i = last_node_seen_ + 1; i < std::min(int(path_to_follow_.size()), i + 5); i++)
+  for (int i = last_node_seen_ + 1; i < path_to_follow_.size(); i++)
   {
     float x2 = std::get<0>(path_to_follow_[i]);
     float y2 = std::get<1>(path_to_follow_[i]);
-    float d = distance(x1,y1, x2, y2);
-    if (d < d_) {
+    float d = distance(x1, y1, x2, y2);
+    if (d < d_)
+    {
       d_ = d;
-      next_node_to_check_ = i;
+      // next_node_to_check_ = i; // Not here to do.
     }
   }
   ROS_INFO_STREAM(d_);
   ROS_INFO_STREAM(next_node_to_check_);
+}
+
+void PathsFollower::update_next_point_to_visit(double dist, double epsilon_distance)
+{
+  if (dist < epsilon_distance)
+  {
+    ROS_INFO_STREAM("NEXT POINT IN PATH UPDATED");
+    last_node_seen_++;
+    next_node_to_check_++;
+  }
 }
 
 void PathsFollower::loadPath()
@@ -162,29 +176,27 @@ bool PathsFollower::stopCB(std_srvs::Trigger::Request &req, std_srvs::Trigger::R
   return true;
 }
 
-double PathsFollower::norm_angle(double val) {
+double PathsFollower::norm_angle(double val)
+{
   return angles::normalize_angle(val);
 }
 
-float PathsFollower::errror_lat()
+double PathsFollower::compute_yaw_angle(double dx, double dy)
 {
-  float x1 = std::get<0>(pose_);
-  float y1 = std::get<1>(pose_);
-  ROS_INFO_STREAM("x1: " << x1);
-  ROS_INFO_STREAM("y1: " << y1);
-  float x2 = std::get<0>(path_to_follow_[next_node_to_check_]);
-  float y2 = std::get<1>(path_to_follow_[next_node_to_check_]);
-  double dx = x1 - x2;
-  double dy = y1 - y2;
-  ROS_INFO_STREAM("x2: " << x2);
-  ROS_INFO_STREAM("y2: " << y2);
-  double path_yaw_angle = norm_angle(std::atan2(dy, dx));
-  ROS_INFO_STREAM(path_yaw_angle);
+  return norm_angle(std::atan2(dy, dx));
+}
 
-  const double c_yaw = std::cos(path_yaw_angle);
-  const double s_yaw = std::sin(path_yaw_angle);
-  error_lat_ = dx * s_yaw - dy * s_yaw;
+void PathsFollower::errror_lat(double dx, double dy, double yaw_point, double dist)
+{
+  const double s_yaw = std::sin(yaw_point);
+  error_lat_ = dist * s_yaw;
   ROS_INFO_STREAM("Error lat : " << error_lat_);
+}
+
+void PathsFollower::error_angle(double yaw_pose, double yaw_point)
+{
+  error_angle_ = norm_angle(yaw_pose - yaw_point);
+  ROS_INFO_STREAM("error_angle : " << error_angle_);
 }
 
 void PathsFollower::controlLoop(const ros::TimerEvent &event)
@@ -192,11 +204,28 @@ void PathsFollower::controlLoop(const ros::TimerEvent &event)
   updateControlPose(); // get localization in pose_
   // ROS_INFO_STREAM("x: " << std::get<0>(pose_) << " y: " << std::get<1>(pose_) << " yaw: " << std::get<2>(pose_));
 
-  auto v = 0.0; // vitesse lineaire
-  auto w = 0.5; // vitesse angulaire
-  get_closest_point();
-  errror_lat();
-  
+  auto v = 1.0; // vitesse lineaire
+  auto w = 0.0; // vitesse angulaire
+
+  double x1 = std::get<0>(pose_);
+  double y1 = std::get<1>(pose_);
+  double x2 = std::get<0>(path_to_follow_[next_node_to_check_]);
+  double y2 = std::get<1>(path_to_follow_[next_node_to_check_]);
+  // x1 = 0;  // RM ME
+  // y1 = 0;  // RM ME
+  // x2 = 1;  // RM ME
+  // y2 = 1; // RM ME
+  double dx = x2 - x1;
+  double dy = y2 - y1;
+  double dist = distance(x1, y1, x2, y2);
+  update_next_point_to_visit(dist, 0.10);
+  double yaw_pose = std::get<2>(pose_);
+  double yaw_point = compute_yaw_angle(dx, dy);
+
+  yaw_pose = 0; // RM ME
+
+  errror_lat(dx, dy, yaw_point, dist);
+  error_angle(yaw_pose, yaw_point);
 
   auto phi1 = (2 * v + length_ * w) / (2 * radius_);
   auto phi2 = (2 * v - length_ * w) / (2 * radius_);

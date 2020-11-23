@@ -11,7 +11,7 @@ rosservice call /gazebo/set_model_state "model_state:
     position:
       x: 0.5
       y: 0.0
-      z: 1.0
+      z: 0.0
     orientation:
       x: 0.0
       y: 0.0

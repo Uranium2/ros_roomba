@@ -21,15 +21,20 @@ private:
   void loadPath();
   void controlLoop(const ros::TimerEvent &event);
   void print_path();
-  float distance(float x1, float y1, float x2, float y2);
-  float errror_lat();
-  void get_closest_point();
   bool goalCB(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &resp);
   bool stopCB(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &resp);
   void updateControlPose();
-  double norm_angle(double val);
   void cb_speed_ratio(const geometry_msgs::Twist::ConstPtr &msg);
 
+  float distance(float x1, float y1, float x2, float y2);
+  void get_closest_point();
+  void update_next_point_to_visit(double dist, double epsilon_distance);
+
+  double norm_angle(double val);
+  double compute_yaw_angle(double dx, double dy);
+  void errror_lat(double dx, double dy, double yaw_point, double dist);
+  void error_angle(double yaw_pose, double yaw_point);
+  
   ros::NodeHandle nh_;
   ros::NodeHandle nh_p_;
 
@@ -50,6 +55,7 @@ private:
   int last_node_seen_ = -1;
   int next_node_to_check_ = 0;
   double error_lat_;
+  double error_angle_;
   ros::Timer timer_;
 
   ros::Publisher pub_left_;
