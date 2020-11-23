@@ -108,23 +108,27 @@ void PathsFollower::print_path()
 
 void PathsFollower::get_closest_point()
 {
-  d_ = std::numeric_limits<float>::max();
   updateControlPose();
   float x1 = std::get<0>(pose_);
   float y1 = std::get<1>(pose_);
 
-  for (int i = last_node_seen_ + 1; i < path_to_follow_.size(); i++)
+  double d_min = distance(std::get<0>(path_to_follow_[0]),
+                   std::get<1>(path_to_follow_[0]),
+                   std::get<0>(path_to_follow_[1]),
+                   std::get<1>(path_to_follow_[1]));
+
+  for (int i = 1; i < path_to_follow_.size(); i++)
   {
     float x2 = std::get<0>(path_to_follow_[i]);
     float y2 = std::get<1>(path_to_follow_[i]);
     float d = distance(x1, y1, x2, y2);
-    if (d < d_)
+    if (d < d_min)
     {
-      d_ = d;
-      // next_node_to_check_ = i; // Not here to do.
+      d_min = d;
+      next_node_to_check_ = i;
     }
   }
-  ROS_INFO_STREAM(d_);
+  ROS_INFO_STREAM(d_min);
   ROS_INFO_STREAM(next_node_to_check_);
 }
 
@@ -133,7 +137,7 @@ void PathsFollower::update_next_point_to_visit(double dist, double epsilon_dista
   if (dist < epsilon_distance)
   {
     ROS_INFO_STREAM("NEXT POINT IN PATH UPDATED");
-    last_node_seen_++;
+    ROS_INFO_STREAM(next_node_to_check_);
     next_node_to_check_++;
   }
 }
@@ -151,7 +155,6 @@ void PathsFollower::loadPath()
   pub_path_.publish(to_publish.first);
   pub_path_poses_.publish(to_publish.second);
   print_path();
-  get_closest_point();
 }
 
 bool PathsFollower::goalCB(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &resp)
@@ -159,6 +162,7 @@ bool PathsFollower::goalCB(std_srvs::Trigger::Request &req, std_srvs::Trigger::R
   updateControlPose();
 
   // TODO start to follow the path
+  get_closest_point();
   timer_.start();
 
   return true;
@@ -190,13 +194,13 @@ void PathsFollower::errror_lat(double dx, double dy, double yaw_point, double di
 {
   const double s_yaw = std::sin(yaw_point);
   error_lat_ = dist * s_yaw;
-  ROS_INFO_STREAM("Error lat : " << error_lat_);
+  // ROS_INFO_STREAM("Error lat : " << error_lat_);
 }
 
 void PathsFollower::error_angle(double yaw_pose, double yaw_point)
 {
   error_angle_ = norm_angle(yaw_pose - yaw_point);
-  ROS_INFO_STREAM("error_angle : " << error_angle_);
+  // ROS_INFO_STREAM("error_angle : " << error_angle_);
 }
 
 void PathsFollower::controlLoop(const ros::TimerEvent &event)
@@ -226,6 +230,8 @@ void PathsFollower::controlLoop(const ros::TimerEvent &event)
 
   errror_lat(dx, dy, yaw_point, dist);
   error_angle(yaw_pose, yaw_point);
+
+  w = 0.2 * error_angle_;
 
   auto phi1 = (2 * v + length_ * w) / (2 * radius_);
   auto phi2 = (2 * v - length_ * w) / (2 * radius_);

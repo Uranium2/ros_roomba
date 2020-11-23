@@ -51,8 +51,6 @@ private:
   ros::ServiceServer stop_srv_;
   float radius_ = 0.1;
   float length_ = 0.46;
-  float d_ = 999.99;
-  int last_node_seen_ = -1;
   int next_node_to_check_ = 0;
   double error_lat_;
   double error_angle_;
