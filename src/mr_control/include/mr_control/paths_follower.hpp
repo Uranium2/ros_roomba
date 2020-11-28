@@ -34,6 +34,12 @@ private:
   double compute_yaw_angle(double dx, double dy);
   void errror_lat(double dx, double dy, double yaw_point, double dist);
   void error_angle(double yaw_pose, double yaw_point);
+
+  double update_system(double pv, double c, double dt);
+  double PID(double now, double kp, double ki, double kd, double dt);
+
+  double v_ = 0.5; // vitesse lineaire
+  double w_ = 0.0; // vitesse angulaire
   
   ros::NodeHandle nh_;
   ros::NodeHandle nh_p_;
@@ -54,6 +60,10 @@ private:
   int next_node_to_check_ = 0;
   double error_lat_;
   double error_angle_;
+  double last_time_;
+  double proportional_;
+  double integral_ = 0;
+  double derivative_;
   ros::Timer timer_;
 
   ros::Publisher pub_left_;
