@@ -32,11 +32,10 @@ private:
 
   double norm_angle(double val);
   double compute_yaw_angle(double dx, double dy);
-  void errror_lat(double dx, double dy, double yaw_point, double dist);
+  void errror_lat(double dx, double dy, double yaw_point);
   void error_angle(double yaw_pose, double yaw_point);
 
-  double update_system(double pv, double c, double dt);
-  double PID(double now, double kp, double ki, double kd, double dt);
+  double PID(double now, double kp, double ki, double kd, double dt, double error);
 
   double v_ = 0.5; // vitesse lineaire
   double w_ = 0.0; // vitesse angulaire

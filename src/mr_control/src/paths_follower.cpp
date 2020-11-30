@@ -166,6 +166,7 @@ bool PathsFollower::goalCB(std_srvs::Trigger::Request &req, std_srvs::Trigger::R
   timer_.start();
   last_time_ = ros::Time::now().toSec();
   integral_ = 0;
+  w_ = 0;
 
   return true;
 }
@@ -192,27 +193,23 @@ double PathsFollower::compute_yaw_angle(double dx, double dy)
   return norm_angle(std::atan2(dy, dx));
 }
 
-void PathsFollower::errror_lat(double dx, double dy, double yaw_point, double dist)
+void PathsFollower::errror_lat(double dx, double dy, double yaw_point)
 {
   const double s_yaw = std::sin(yaw_point);
-  error_lat_ = dist * s_yaw;
-  ROS_INFO_STREAM("Error lat : " << error_lat_);
+  const double c_yaw = std::cos(yaw_point);
+  error_lat_ = dx * s_yaw - dy * c_yaw;
 }
 
 void PathsFollower::error_angle(double yaw_pose, double yaw_point)
 {
   error_angle_ = norm_angle(yaw_pose - yaw_point);
-  ROS_INFO_STREAM("error_angle : " << error_angle_);
 }
 
-double PathsFollower::update_system(double pv, double c, double dt){
-  return pv + c * dt - 1 * dt; 
-}
 
-double PathsFollower::PID(double now, double kp, double ki, double kd, double dt) {
-  proportional_ = kp * error_lat_;
-  integral_ += ki * error_lat_ * dt;
-  derivative_ =  -kd * error_angle_ / dt;
+double PathsFollower::PID(double now, double kp, double ki, double kd, double dt, double error) {
+  proportional_ = kp * error;
+  integral_ += ki * error * dt;
+  derivative_ =  -kd * error / dt;
 
   double output = proportional_ + integral_ + derivative_;
 
@@ -228,8 +225,8 @@ void PathsFollower::controlLoop(const ros::TimerEvent &event)
   double dt = now - last_time_;
   
 
-  double kp = -0.4;
-  double ki = -0.6;
+  double kp = -1;
+  double ki = 0.;
   double kd = 0;
 
   double x1 = std::get<0>(pose_);
@@ -240,26 +237,29 @@ void PathsFollower::controlLoop(const ros::TimerEvent &event)
   // y1 = 0;  // RM ME
   // x2 = 1;  // RM ME
   // y2 = 1; // RM ME
-  double dx = x2 - x1;
-  double dy = y2 - y1;
+  double dx = x1 - x2;
+  double dy = y1 - y2;
   double dist = distance(x1, y1, x2, y2);
-  update_next_point_to_visit(dist, 0.10);
-  double yaw_pose = std::get<2>(pose_);
-  double yaw_point = compute_yaw_angle(dx, dy);
+  double yaw_pose = norm_angle(std::get<2>(pose_));
+  double yaw_point = norm_angle(std::get<2>(path_to_follow_[next_node_to_check_]));
+  // compute_yaw_angle(dx, dy);
 
 
-  errror_lat(dx, dy, yaw_point, dist);
+  errror_lat(dx, dy, yaw_point);
   error_angle(yaw_pose, yaw_point);
 
-  double c = PID(now, kp, ki, kd, dt);
-  // w_ = update_system(w_, c, dt);
-  w_ = c;
+  double w_lat = PID(now, -1, 0, 0, 0, error_lat_);
+  double w_angle = PID(now, 1, 0, 0, 0, error_angle_);
 
-  ROS_INFO_STREAM("dt : " << dt);
-  ROS_INFO_STREAM("c : " << c);
+  w_ = w_lat + w_angle;
 
-  ROS_INFO_STREAM("V : " << v_);
+  // ROS_INFO_STREAM("error_angle : " << error_angle_);
+  ROS_INFO_STREAM("Error lat : " << error_lat_);
+  // ROS_INFO_STREAM("dt : " << dt);
+
+  // ROS_INFO_STREAM("V : " << v_);
   ROS_INFO_STREAM("W : " << w_);
+  ROS_INFO_STREAM("next_node_to_check_ : " << next_node_to_check_);
 
 
   auto phi1 = (2 * v_ + length_ * w_) / (2 * radius_);
@@ -270,6 +270,7 @@ void PathsFollower::controlLoop(const ros::TimerEvent &event)
   data_right.data = phi2;
   pub_left_.publish(data_left);
   pub_right_.publish(data_right);
+  update_next_point_to_visit(dist, 0.60);
   last_time_ = now;
 }
 
