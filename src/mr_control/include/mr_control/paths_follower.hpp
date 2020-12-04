@@ -37,7 +37,7 @@ private:
 
   double PID(double now, double kp, double ki, double kd, double dt, double error);
 
-  double v_ = 0.5; // vitesse lineaire
+  double v_ = 1; // vitesse lineaire
   double w_ = 0.0; // vitesse angulaire
   
   ros::NodeHandle nh_;

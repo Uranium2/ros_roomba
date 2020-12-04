@@ -225,10 +225,6 @@ void PathsFollower::controlLoop(const ros::TimerEvent &event)
   double dt = now - last_time_;
   
 
-  double kp = -1;
-  double ki = 0.;
-  double kd = 0;
-
   double x1 = std::get<0>(pose_);
   double y1 = std::get<1>(pose_);
   double x2 = std::get<0>(path_to_follow_[next_node_to_check_]);
@@ -248,8 +244,8 @@ void PathsFollower::controlLoop(const ros::TimerEvent &event)
   errror_lat(dx, dy, yaw_point);
   error_angle(yaw_pose, yaw_point);
 
-  double w_lat = PID(now, -1, 0, 0, 0, error_lat_);
-  double w_angle = PID(now, 1, 0, 0, 0, error_angle_);
+  double w_lat = PID(now, -2, -0.1, -0.05, dt, error_lat_);
+  double w_angle = PID(now, 1.7, 0, 0, dt, error_angle_);
 
   w_ = w_lat + w_angle;
 
@@ -270,7 +266,7 @@ void PathsFollower::controlLoop(const ros::TimerEvent &event)
   data_right.data = phi2;
   pub_left_.publish(data_left);
   pub_right_.publish(data_right);
-  update_next_point_to_visit(dist, 0.60);
+  update_next_point_to_visit(dist, 0.40);
   last_time_ = now;
 }
 

@@ -9,9 +9,9 @@ rosservice call /gazebo/set_model_state "model_state:
   model_name: 'mr'
   pose:
     position:
-      x: 0.5
-      y: 0.0
-      z: 0.0
+      x: 0.0
+      y: 0.5
+      z: 0.1
     orientation:
       x: 0.0
       y: 0.0
