@@ -133,10 +133,10 @@ class Predict():
         index_best_prediction = np.argmax(output_dict['detection_scores'])
 
         score_best_prediction = output_dict['detection_scores'][index_best_prediction]
-        box_best_prediction = output_dict['detection_boxes'][index_best_prediction]
-        classe_best_prediction = output_dict['detection_classes'][index_best_prediction]
+        # box_best_prediction = output_dict['detection_boxes'][index_best_prediction]
+        # classe_best_prediction = output_dict['detection_classes'][index_best_prediction]
 
-        area = (box_best_prediction[0] - box_best_prediction[3]) * (box_best_prediction[1] - box_best_prediction[2])
+        # area = (box_best_prediction[0] - box_best_prediction[3]) * (box_best_prediction[1] - box_best_prediction[2])
         # (im_width, im_height) = image_shape
         # ymin, xmin, ymax, xmax = box_best_prediction
         # (left, right, top, bottom) = (xmin * im_width, xmax * im_width, 
@@ -160,6 +160,8 @@ class Predict():
             instance_masks=output_dict.get('detection_masks'),
             use_normalized_coordinates=True,
             line_thickness=8)
-        return image_np
+        if score_best_prediction >= 0.3:
+            return image_np, True
+        return image_np, False
 
 
