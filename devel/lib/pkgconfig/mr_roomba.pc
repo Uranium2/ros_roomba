@@ -1,0 +1,8 @@
+prefix=/home/uranium/Documents/Cours/robotics_courses/devel
+
+Name: mr_roomba
+Description: Description of mr_roomba
+Version: 0.0.0
+Cflags: -I/home/uranium/Documents/Cours/robotics_courses/src/mr_roomba/include
+Libs: -L${prefix}/lib -lmr_roomba
+Requires: nav_msgs roscpp message_runtime tf2 tf2_ros std_msgs geometry_msgs roslib tf gazebo_msgs

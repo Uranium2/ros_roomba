@@ -1,0 +1,8 @@
+prefix=/home/uranium/Documents/Cours/robotics_courses/devel
+
+Name: mr_vision
+Description: Description of mr_vision
+Version: 0.0.0
+Cflags: 
+Libs: -L${prefix}/lib -lmr_vision
+Requires: geometry_msgs std_msgs sensor_msgs
