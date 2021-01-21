@@ -1,0 +1,16 @@
+item {
+    id: 1
+    name: 'Stop_sign'
+}
+item {
+    id: 2
+    name: 'Traffic_sign'
+}
+item {
+    id: 3
+    name: 'Car'
+}
+item {
+    id: 4
+    name: 'Person'
+}
