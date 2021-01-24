@@ -1,8 +1,0 @@
-prefix=/home/uranium/Documents/Cours/robotics_courses/devel
-
-Name: mr_path_recorder
-Description: Description of mr_path_recorder
-Version: 0.0.0
-Cflags: -I/home/uranium/Documents/Cours/robotics_courses/src/mr_path_recorder/include
-Libs: -L${prefix}/lib -lmr_path_recorder
-Requires: roscpp sensor_msgs std_srvs geometry_msgs tf2 tf2_ros nav_msgs

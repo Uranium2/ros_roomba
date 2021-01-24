@@ -1,8 +1,0 @@
-prefix=/home/uranium/Documents/Cours/robotics_courses/devel
-
-Name: mr_simulation
-Description: Description of mr_simulation
-Version: 0.0.0
-Cflags: 
-Libs: -L${prefix}/lib 
-Requires: 

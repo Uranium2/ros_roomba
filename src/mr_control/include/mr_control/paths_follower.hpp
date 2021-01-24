@@ -11,6 +11,7 @@
 #include "mr_control/Goal.h"
 
 using coords = std::tuple<float, float, float>;
+void positionreached(const std_msgs::Bool::ConstPtr& is_stop_sign_value);
 
 class PathsFollower
 {
@@ -70,7 +71,7 @@ private:
   ros::Publisher pub_point_;
   ros::Publisher pub_path_;
   ros::Publisher pub_path_poses_;
-
+  ros::Subscriber is_stop_sign;
 
   tf2_ros::Buffer tfBuffer_;
   tf2_ros::TransformListener odom_to_map_listener_;
