@@ -2,6 +2,7 @@
 #include <sys/types.h>
 #include <ostream>
 #include <chrono>
+#include <thread>
 
 #include <geometry_msgs/PoseArray.h>
 #include <geometry_msgs/PoseStamped.h>
@@ -17,7 +18,6 @@
 
 bool must_stop = false;
 bool same_stop_sign = false;
-int elapsed_time_stop = std::time(0);
 
 template <typename T1>
 void yawToQuatRos(const double &yaw, T1 &q)
@@ -76,25 +76,19 @@ PathsFollower::PathsFollower(ros::NodeHandle &nh, const ros::NodeHandle &nh_p)
   pub_point_ = nh_.advertise<geometry_msgs::PoseStamped>("/paths_follower/tracked_point", 1);
   pub_path_ = nh_.advertise<nav_msgs::Path>("/path", 1, true);
   pub_path_poses_ = nh_.advertise<geometry_msgs::PoseArray>("/path_poses", 1, true);
-  is_stop_sign = nh_.subscribe("/is_stop_sign", 1, positionreached);
+  is_stop_sign = nh_.subscribe("/is_stop_sign", 1, stopSignCallback);
   loadPath();
 }
 
-void positionreached(const std_msgs::Bool::ConstPtr& is_stop_sign_value)
+void stopSignCallback(const std_msgs::Bool::ConstPtr& is_stop_sign_value)
 {
     const bool is_stop_sign_bool = is_stop_sign_value->data;
-    auto ct = std::time(0);
 
-    if (must_stop && ct - elapsed_time_stop >= 3) {
-        must_stop = false;
-    } else {
-        if (is_stop_sign_bool && !same_stop_sign) {
-            must_stop = true;
-            same_stop_sign = true;
-            elapsed_time_stop = ct;
-        } else if (!is_stop_sign_bool && same_stop_sign) {
-            same_stop_sign = false;
-        }
+    if (is_stop_sign_bool && !same_stop_sign) {
+        must_stop = true;
+        same_stop_sign = true;
+    } else if (!is_stop_sign_bool && same_stop_sign) {
+        same_stop_sign = false;
     }
 }
 
@@ -115,8 +109,7 @@ void PathsFollower::updateControlPose()
 
 float PathsFollower::distance(float x1, float y1, float x2, float y2)
 {
-  return std::sqrt(std::pow(x2 - x1, 2) +
-                   std::pow(y2 - y1, 2) * 1.0);
+  return std::sqrt(std::pow(x2 - x1, 2) + std::pow(y2 - y1, 2) * 1.0);
 }
 
 void PathsFollower::print_path()
@@ -160,8 +153,7 @@ void PathsFollower::update_next_point_to_visit(double dist, double epsilon_dista
 {
   if (dist < epsilon_distance)
   {
-    ROS_INFO_STREAM("NEXT POINT IN PATH UPDATED");
-    ROS_INFO_STREAM(next_node_to_check_);
+    ROS_INFO_STREAM("NEXT POINT IN PATH UPDATED : " << next_node_to_check_);
     next_node_to_check_++;
   }
 }
@@ -233,17 +225,38 @@ void PathsFollower::error_angle(double yaw_pose, double yaw_point)
 double PathsFollower::PID(double now, double kp, double ki, double kd, double dt, double error) {
   proportional_ = kp * error;
   integral_ += ki * error * dt;
-  derivative_ =  -kd * error / dt;
+  derivative_ = -kd * error / dt;
+  return proportional_ + integral_ + derivative_;
+}
 
-  double output = proportional_ + integral_ + derivative_;
+std_msgs::Float64 PathsFollower::doubleToMsgs(double value) {
+    std_msgs::Float64 message;
+    message.data = value;
+    return message;
+}
 
-  return output;
+void PathsFollower::stopAtStopSign(double w_first)
+{
+    int waiting_seconds = 5;
+    int braking_intervals_milliseconds = 50;
+    double decay_factor = 0.9;
+    double target_v = (2 * v_ + length_ * w_first) / (2 * radius_);
+
+    while (target_v > 0.1) {
+        pub_left_.publish(doubleToMsgs(target_v));
+        pub_right_.publish(doubleToMsgs(target_v));
+        target_v *= decay_factor;
+        std::this_thread::sleep_for(std::chrono::milliseconds(braking_intervals_milliseconds));
+    }
+    pub_left_.publish(doubleToMsgs(0.0));
+    pub_right_.publish(doubleToMsgs(0.0));
+    std::this_thread::sleep_for(std::chrono::seconds(waiting_seconds));
+    must_stop = false;
 }
 
 void PathsFollower::controlLoop(const ros::TimerEvent &event)
 {
   updateControlPose(); // get localization in pose_
-  // ROS_INFO_STREAM("x: " << std::get<0>(pose_) << " y: " << std::get<1>(pose_) << " yaw: " << std::get<2>(pose_));
 
   double now = ros::Time::now().toSec();
   double dt = now - last_time_;
@@ -253,17 +266,11 @@ void PathsFollower::controlLoop(const ros::TimerEvent &event)
   double y1 = std::get<1>(pose_);
   double x2 = std::get<0>(path_to_follow_[next_node_to_check_]);
   double y2 = std::get<1>(path_to_follow_[next_node_to_check_]);
-  // x1 = 0;  // RM ME
-  // y1 = 0;  // RM ME
-  // x2 = 1;  // RM ME
-  // y2 = 1; // RM ME
   double dx = x1 - x2;
   double dy = y1 - y2;
   double dist = distance(x1, y1, x2, y2);
   double yaw_pose = norm_angle(std::get<2>(pose_));
   double yaw_point = norm_angle(std::get<2>(path_to_follow_[next_node_to_check_]));
-  // compute_yaw_angle(dx, dy);
-
 
   errror_lat(dx, dy, yaw_point);
   error_angle(yaw_pose, yaw_point);
@@ -273,27 +280,14 @@ void PathsFollower::controlLoop(const ros::TimerEvent &event)
 
   w_ = w_lat + w_angle;
 
-  // ROS_INFO_STREAM("error_angle : " << error_angle_);
-  ROS_INFO_STREAM("Error lat : " << error_lat_);
-  // ROS_INFO_STREAM("dt : " << dt);
-
-  // ROS_INFO_STREAM("V : " << v_);
-  ROS_INFO_STREAM("W : " << w_);
-  ROS_INFO_STREAM("next_node_to_check_ : " << next_node_to_check_);
-
-  double phi1  = 0.0;
-  double phi2 = 0.0;
-  if (!must_stop) {
-    phi1 = (2 * v_ + length_ * w_) / (2 * radius_);
-    phi2 = (2 * v_ - length_ * w_) / (2 * radius_);
+  if (must_stop) {
+     stopAtStopSign(w_);
+  } else {
+    double phi1 = (2 * v_ + length_ * w_) / (2 * radius_);
+    double phi2 = (2 * v_ - length_ * w_) / (2 * radius_);
+    pub_left_.publish(doubleToMsgs(phi1));
+    pub_right_.publish(doubleToMsgs(phi2));
   }
-
-  std_msgs::Float64 data_left;
-  data_left.data = phi1;
-  std_msgs::Float64 data_right;
-  data_right.data = phi2;
-  pub_left_.publish(data_left);
-  pub_right_.publish(data_right);
   update_next_point_to_visit(dist, 0.40);
   last_time_ = now;
 }

@@ -11,7 +11,7 @@
 #include "mr_control/Goal.h"
 
 using coords = std::tuple<float, float, float>;
-void positionreached(const std_msgs::Bool::ConstPtr& is_stop_sign_value);
+void stopSignCallback(const std_msgs::Bool::ConstPtr& is_stop_sign_value);
 
 class PathsFollower
 {
@@ -37,6 +37,8 @@ private:
   void error_angle(double yaw_pose, double yaw_point);
 
   double PID(double now, double kp, double ki, double kd, double dt, double error);
+  void stopAtStopSign(double w_first);
+  std_msgs::Float64 doubleToMsgs(double value);
 
   double v_ = 1; // vitesse lineaire
   double w_ = 0.0; // vitesse angulaire

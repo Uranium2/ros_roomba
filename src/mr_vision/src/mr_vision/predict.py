@@ -1,5 +1,6 @@
 import sys
 from pathlib import Path
+from typing import Any, Dict, Tuple
 
 import numpy as np
 import rospy
@@ -11,21 +12,21 @@ from object_detection.utils import label_map_util
 from object_detection.utils import ops as utils_ops
 from object_detection.utils import visualization_utils as vis_util
 
-# EDIT TO THE FOLDER OF THISFILE. Since this file is copied to "~.ros/"
+# EDIT TO THE FOLDER OF THIS FILE. Since this file is copied to "~.ros/"
 PROJECT_FOLDER = Path("/ROS", "src", "mr_vision", "src", "mr_vision")
 MODEL_NAME = "fine_tuned_model1"
 # Path to frozen detection graph.
 # This is the actual model that is used for the object detection.
 PATH_TO_CKPT = Path(PROJECT_FOLDER, MODEL_NAME, "frozen_inference_graph.pb")
 # List of the strings that is used to add correct label for each box.
-PATH_TO_LABELS = Path(PROJECT_FOLDER, "fine_tuned_model", "label_map.pbtxt")
+PATH_TO_LABELS = Path(PROJECT_FOLDER, MODEL_NAME, "label_map.pbtxt")
 
 assert PATH_TO_CKPT.is_file()
 assert PATH_TO_LABELS.is_file()
 
 
 class Predict:
-    def __init__(self):
+    def __init__(self) -> None:
         self.detection_graph = tf.Graph()
         with self.detection_graph.as_default():
             od_graph_def = tf.GraphDef()
@@ -34,14 +35,22 @@ class Predict:
                 od_graph_def.ParseFromString(serialized_graph)
                 tf.import_graph_def(od_graph_def, name="")
 
+        self.category_index = Predict._get_category_index()
+
+    @staticmethod
+    def _get_category_index() -> Dict[int, Dict[str, Any]]:
+        """
+        Exemple of label dict :
+        {1: {'id': 1, 'name': 'Stop_sign'}}
+        """
         label_map = label_map_util.load_labelmap(str(PATH_TO_LABELS.resolve()))
         categories = label_map_util.convert_label_map_to_categories(
             label_map, max_num_classes=1, use_display_name=True
         )
-        self.category_index = label_map_util.create_category_index(categories)
+        return label_map_util.create_category_index(categories)
 
-    def run_inference_for_single_image(self, image, graph):
-        with graph.as_default():
+    def run_inference_for_single_image(self, image: np.ndarray) -> Dict[str, Any]:
+        with self.detection_graph.as_default():
             with tf.Session() as sess:
                 # Get handles to input and output tensors
                 ops = tf.get_default_graph().get_operations()
@@ -109,12 +118,10 @@ class Predict:
                     output_dict["detection_masks"] = output_dict["detection_masks"][0]
         return output_dict
 
-    def predict_result(self, image_np):
+    def predict_result(self, image_np: np.ndarray) -> Tuple[np.ndarray, bool]:
         rospy.loginfo("Making a prediction")
         # Actual detection.
-        output_dict = self.run_inference_for_single_image(
-            image_np, self.detection_graph
-        )
+        output_dict = self.run_inference_for_single_image(image_np)
         index_best_prediction = np.argmax(output_dict["detection_scores"])
         score_best_prediction = output_dict["detection_scores"][index_best_prediction]
         vis_util.visualize_boxes_and_labels_on_image_array(
