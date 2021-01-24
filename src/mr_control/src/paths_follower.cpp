@@ -6,6 +6,7 @@
 #include <geometry_msgs/PoseArray.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <std_msgs/Float64.h>
+#include <std_msgs/Bool.h>
 #include <nav_msgs/Path.h>
 #include <tf/transform_datatypes.h>
 #include <ros/package.h>
@@ -13,6 +14,10 @@
 
 #include "mr_control/paths_follower.hpp"
 #include "mr_control/csv_reader.hpp"
+
+bool must_stop = false;
+bool same_stop_sign = false;
+int elapsed_time_stop = std::time(0);
 
 template <typename T1>
 void yawToQuatRos(const double &yaw, T1 &q)
@@ -71,7 +76,26 @@ PathsFollower::PathsFollower(ros::NodeHandle &nh, const ros::NodeHandle &nh_p)
   pub_point_ = nh_.advertise<geometry_msgs::PoseStamped>("/paths_follower/tracked_point", 1);
   pub_path_ = nh_.advertise<nav_msgs::Path>("/path", 1, true);
   pub_path_poses_ = nh_.advertise<geometry_msgs::PoseArray>("/path_poses", 1, true);
+  is_stop_sign = nh_.subscribe("/is_stop_sign", 1, positionreached);
   loadPath();
+}
+
+void positionreached(const std_msgs::Bool::ConstPtr& is_stop_sign_value)
+{
+    const bool is_stop_sign_bool = is_stop_sign_value->data;
+    auto ct = std::time(0);
+
+    if (must_stop && ct - elapsed_time_stop >= 3) {
+        must_stop = false;
+    } else {
+        if (is_stop_sign_bool && !same_stop_sign) {
+            must_stop = true;
+            same_stop_sign = true;
+            elapsed_time_stop = ct;
+        } else if (!is_stop_sign_bool && same_stop_sign) {
+            same_stop_sign = false;
+        }
+    }
 }
 
 void PathsFollower::updateControlPose()
@@ -257,9 +281,13 @@ void PathsFollower::controlLoop(const ros::TimerEvent &event)
   ROS_INFO_STREAM("W : " << w_);
   ROS_INFO_STREAM("next_node_to_check_ : " << next_node_to_check_);
 
+  double phi1  = 0.0;
+  double phi2 = 0.0;
+  if (!must_stop) {
+    phi1 = (2 * v_ + length_ * w_) / (2 * radius_);
+    phi2 = (2 * v_ - length_ * w_) / (2 * radius_);
+  }
 
-  auto phi1 = (2 * v_ + length_ * w_) / (2 * radius_);
-  auto phi2 = (2 * v_ - length_ * w_) / (2 * radius_);
   std_msgs::Float64 data_left;
   data_left.data = phi1;
   std_msgs::Float64 data_right;

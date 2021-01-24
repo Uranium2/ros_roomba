@@ -2,4 +2,4 @@
 set -e
 source devel/setup.bash
 catkin_make
-roslaunch mr_simulation mr.launch
+roslaunch mr_simulation mr.launch world_name:=street
